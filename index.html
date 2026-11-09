@@ -117,7 +117,8 @@ async function startExperiment(){
 }
 
 function fallback(message){
-  document.getElementById('status').textContent=message || 'Sensor no disponible: puedes registrar mediciones manualmente.';
+  document.getElementById('status').textContent=
+    message || 'Sensor no disponible: puedes registrar mediciones manualmente.';
 }
 
 function attach(){
@@ -129,9 +130,10 @@ function attach(){
 }
 
 /*
- * En iPhone/iPad algunos navegadores entregan acceleration sin gravedad.
- * Cuando no está disponible, usamos accelerationIncludingGravity y
- * estimamos/eliminamos la componente gravitacional con un filtro suave.
+ * El celular es el objeto del experimento.
+ * Se intenta usar acceleration (aceleración lineal). Si el navegador
+ * solo entrega accelerationIncludingGravity, se estima y elimina
+ * la componente gravitacional para que un celular quieto tienda a 0.
  */
 function motion(e){
   let x=0,y=0,z=0;
@@ -165,47 +167,65 @@ function motion(e){
 
 function orientation(e){
   if(Number.isFinite(e.beta)){
-    // beta aproxima la inclinación del dispositivo respecto de la horizontal.
-    // Se limita a 0–90 para el montaje del experimento.
+    // Inclinación aproximada del celular respecto de la horizontal.
     current.angle=Math.max(0,Math.min(90,Math.abs(e.beta)));
-    document.getElementById('ang').textContent=current.angle.toFixed(1)+' °';
+    document.getElementById('ang').textContent=
+      current.angle.toFixed(1)+' °';
   }
 }
 
-function accelerationMagnitude(){
-  return Math.sqrt(current.x**2+current.y**2+current.z**2);
+function accelerationAlongIncline(){
+  // Usa el eje que más representa la inclinación del celular.
+  // Esto evita mezclar innecesariamente los tres ejes.
+  const ax=Math.abs(current.x);
+  const ay=Math.abs(current.y);
+  const az=Math.abs(current.z);
+  return Math.max(ax,ay,az);
 }
 
 function record(){
   const angle=Number.isFinite(current.angle)?current.angle:15;
-  const experimental=accelerationMagnitude();
+  const experimental=accelerationAlongIncline();
   const theoretical=g*Math.sin(angle*Math.PI/180);
   const error=theoretical>0.0001
     ? Math.abs(experimental-theoretical)/Math.abs(theoretical)*100
     : 0;
 
   measurements.push({angle,experimental,theoretical,error});
-  document.getElementById('status').textContent='Medición '+measurements.length+' registrada';
+
+  document.getElementById('status').textContent=
+    'Medición '+measurements.length+' registrada';
 }
 
 function finish(){
   if(!measurements.length) record();
 
   const last=measurements[measurements.length-1];
-  document.getElementById('ra').textContent=last.angle.toFixed(1)+' °';
-  document.getElementById('re').textContent=last.experimental.toFixed(2)+' m/s²';
-  document.getElementById('rt').textContent=last.theoretical.toFixed(2)+' m/s²';
-  document.getElementById('rerr').textContent=last.error.toFixed(1)+' %';
+
+  document.getElementById('ra').textContent=
+    last.angle.toFixed(1)+' °';
+  document.getElementById('re').textContent=
+    last.experimental.toFixed(2)+' m/s²';
+  document.getElementById('rt').textContent=
+    last.theoretical.toFixed(2)+' m/s²';
+  document.getElementById('rerr').textContent=
+    last.error.toFixed(1)+' %';
 
   const vals=measurements.map(m=>m.experimental);
   const avg=vals.reduce((a,b)=>a+b,0)/vals.length;
-  const sd=Math.sqrt(vals.reduce((s,v)=>s+(v-avg)**2,0)/vals.length);
+  const sd=Math.sqrt(
+    vals.reduce((s,v)=>s+(v-avg)**2,0)/vals.length
+  );
 
-  document.getElementById('rav').textContent=avg.toFixed(2)+' m/s²';
-  document.getElementById('rsd').textContent=sd.toFixed(2)+' m/s²';
-  document.getElementById('table').innerHTML=measurements.map((m,i)=>
-    `<tr><td>${i+1}</td><td>${m.angle.toFixed(1)}</td><td>${m.experimental.toFixed(2)}</td></tr>`
-  ).join('');
+  document.getElementById('rav').textContent=
+    avg.toFixed(2)+' m/s²';
+  document.getElementById('rsd').textContent=
+    sd.toFixed(2)+' m/s²';
+
+  document.getElementById('table').innerHTML=
+    measurements.map((m,i)=>
+      `<tr><td>${i+1}</td><td>${m.angle.toFixed(1)}</td><td>${m.experimental.toFixed(2)}</td></tr>`
+    ).join('');
 
   show('results');
 }
